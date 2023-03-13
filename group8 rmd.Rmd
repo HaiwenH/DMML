@@ -1,0 +1,152 @@
+---
+title: "Group8"
+author: "group8"
+date: "2023-03-12"
+output:
+  pdf_document:
+    number_sections: yes
+  html_document:
+    number_sections: yes
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#reading data
+group_8<-read.csv("~/Desktop/Group_8/group_8.csv")
+#loading libraries
+library(tidyverse)
+library(skimr)
+library(ggplot2)
+library(GGally)
+library(kableExtra)
+library(MASS)
+library(class)
+library(dplyr)
+library(tidyr)
+```
+
+# Introduaction {#sec:intro}
+
+# Data Description {#sec:des}
+
+Our data is about IMDB movie.To define what variables make a movie more successful than others, we select success as our explained variables, movie_title, duration, total_facebook_likes, num_critic_for_reviews, num_user_for_reviews, genres, title year, country, content_rating, grossas as explanatory variables. These variables are measured as follows:
+
+* imdb_score is the IMDB score of the movie on IMDB
+* movie_title is the title of the Movie
+* duration is the duration in minutes
+* total_facebook_likes is number of likes of the director on his Facebook Page plus total number of facebook likes of the entire cast of the movie
+* num_critic_for_reviews is the number of critical reviews on imdb
+* num_user_for_reviews is the number of users who gave a review
+* genres is the film categorization like ‘Animation’, ‘Comedy’, ‘Romance’, ‘Horror’, ‘Sci-Fi’, ‘Action’, ‘Family’
+* title year is the year in which the movie is released
+* country is the country where the movie is produced
+* content_rating is the content rating of the movie
+* gross is the gross earnings of the movie in Dollars
+
+Then we define the variable success: if the imdb score is under 7 than it will be a unsuccessful movie which the value of success is 1. And for the movie dataset we use 50% of the data for training, 25% validation the remaining 25% of the data is used to test.
+
+```{r data wrangling, eval=TRUE, message=FALSE, warning=FALSE, include=FALSE}
+#variable select
+group_num<-group_8 %>% select(title_year,duration,gross,num_critic_for_reviews,num_user_for_reviews)
+group_cha<-group_8 %>% select(country,content_rating)
+group_success<-group_8$imdb_score
+total_facebooks_likes<-group_8$cast_total_facebook_likes+group_8$director_facebook_likes+group_8$movie_facebook_likes
+title<-group_8$movie_title
+
+#Define a score of 7 or above as a successful movie
+success <- rep(0, length(group_success))
+# Use a conditional statement to classify the data as 1 or 0
+for (i in 1:length(group_success)) {
+  if (group_success[i] < 7) {
+    success[i] <- 1
+  } else {
+    success[i] <- 0
+  }
+}
+# Output classification results
+success
+
+#new dataset
+movie<-cbind(title,success,group_num,total_facebooks_likes,group_cha)
+str(movie)
+
+#handling categorical variables
+
+#Define a vector to store the columns of the categorical variables
+cat_cols <- c()
+for (i in 9:ncol(movie)) {
+  # If the categorical variable column data type is "factor"
+  if (class(movie[[i]]) == "character" ) {
+    #get the unique value of a variable
+    unique_values <- unique(movie[[i]])
+    #sort by order
+    sort_values<- sort(unique_values)
+    #create a mapping table
+    mapping <- setNames(as.character(1:length(sort_values)), sort_values)
+    #Mapping of categorical variable columns
+    movie[[i]] <- as.numeric(mapping[as.character(movie[[i]])])
+  }
+}
+
+str(movie)
+#missing values added
+
+#view the columns of the missing value distribution
+colSums(is.na(movie))
+
+#Fill in the missing columns with the median
+
+movie$content_rating[is.na(movie$content_rating)] <- median(movie$content_rating, na.rm = TRUE)
+
+str(movie)
+
+#50% of the data is used for training.
+#25% is used for validation.
+#the remaining 25% of the data is used to test.
+set.seed(1)
+n <- nrow(movie)
+ind1 <- sample(c(1:n), floor(0.5*n))
+ind2 <- sample(c(1:n)[-ind1], floor(0.25*n))
+ind3 <- setdiff(c(1:n),c(ind1,ind2))
+movie.train <- movie[ind1,]
+movie.valid <- movie[ind2,]
+movie.test  <- movie[ind3,]
+
+#The mean and sd of train dataset
+var.mean <- apply(movie.train[,4:8],2,mean) 
+var.sd   <- apply(movie.train[,4:8],2,sd)
+
+# Standardise training,test and valid datasets
+movie.train[,4:8] <-t(apply(movie.train[,4:8], 1, function(x) (x-var.mean)/var.sd))
+movie.test[,4:8] <-t(apply(movie.test[,4:8], 1, function(x) (x-var.mean)/var.sd))
+movie.valid[,4:8] <-t(apply(movie.valid[,4:8], 1, function(x) (x-var.mean)/var.sd))
+```
+
+# Exploratory Data Analysis {#sec:eda}
+
+From the summary table \ref{tab:summariesskim} we can see that the mean duration of movies is 109.22 minutes and the mean gross is 50155434.85 dollars which is significant different from its medium. That means there are some outliers in the gross variable.
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE,results='markup', fig.show='asis', eval=TRUE, table.pos="H"}
+my_skim <- skim_with(numeric = sfl(hist = NULL), 
+                    base = sfl(n = length))
+my_skim(group_num) %>%
+  transmute(Variable=skim_variable, n = n, Mean=round(numeric.mean,2), SD=round(numeric.sd,2),
+            Min=numeric.p0, Median=numeric.p50,  Max=numeric.p100,
+            IQR = numeric.p75-numeric.p50) %>%
+  kable(caption = '\\label{tab:summariesskim} Summary statistics 
+        of the movie data') %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+```
+
+
+# Methods {#sec:meth}
+
+# Results and Conclusions {#sec:rac}
+
+# Reference list {#sec:rl}
